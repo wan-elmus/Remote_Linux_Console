@@ -100,22 +100,35 @@ void handle_connect(client_t *client, char *hostname) {
     client->addr.sin_port = htons(PORT);
     memcpy(&client->addr.sin_addr, he->h_addr_list[0], he->h_length);
 }
-
+void handle_disconnect(client_t *client) {
+    // handle the disconnection of a client
+    printf("Client disconnected: %s\n", inet_ntoa(client->addr.sin_addr));
+    client->handle = -1;
+}
 
 void *handle_client(void *arg) {
-    client_t *client = (client_t *)arg;
-    printf("New client connected: %s\n", inet_ntoa(client->addr.sin_addr));
+    int sockfd = *(int *)arg;
+    struct sockaddr_in cliaddr;
+    socklen_t len = sizeof(cliaddr);
+    getpeername(sockfd, (struct sockaddr *)&cliaddr, &len);
+    printf("New client connected: %s\n", inet_ntoa(cliaddr.sin_addr));
+    
+    // initialize the client
+    client_t client;
+    client.sockfd = sockfd;
+    client.addr = cliaddr;
+    client.handle = rand() % MAX_CLIENTS;
 
     while (1) {
         char buffer[BUFFER_SIZE];
         memset(buffer, 0, BUFFER_SIZE);
-        int n = recvfrom(client->sockfd, buffer, BUFFER_SIZE, 0, NULL, NULL);
+        int n = recvfrom(client.sockfd, buffer, BUFFER_SIZE, 0, NULL, NULL);
         if (n < 0) {
             perror("recvfrom");
             break;
         } else if (n == 0) {
             // client disconnected
-            handle_disconnect(client);
+            client.handle = -1;
             break;
         } else {
             // process the command
@@ -124,16 +137,16 @@ void *handle_client(void *arg) {
                 continue;
             } else if (strcmp(token, "connect") == 0) {
                 char *hostname = strtok(NULL, " \n");
-                handle_connect(client, hostname);
+                handle_connect(&client, hostname);
             } else if (strcmp(token, "disconnect") == 0) {
-                handle_disconnect(client);
+                handle_disconnect(&client);
             } else if (strcmp(token, "exec") == 0) {
                 char *cmd = strtok(NULL, "\n");
-                handle_command_execution(client, cmd);
+                handle_command_execution(&client, cmd);
             } else if (strcmp(token, "help") == 0) {
                 handle_help();
             } else if (strcmp(token, "quit") == 0) {
-                handle_disconnect(client);
+                handle_disconnect(&client);
                 break;
             } else {
                 fprintf(stderr, "Unrecognized command: %s\n", token);
@@ -141,9 +154,17 @@ void *handle_client(void *arg) {
         }
     }
 
-    close(client->sockfd);
-    free(client);
+    close(client.sockfd);
+    printf("Client disconnected: %s\n", inet_ntoa(cliaddr.sin_addr));
     return NULL;
+}
+
+void start_client_thread(int sockfd) {
+    pthread_t thread_id;
+    if (pthread_create(&thread_id, NULL, handle_client, &sockfd) != 0) {
+        perror("pthread_create");
+        close(sockfd);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -167,6 +188,30 @@ if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
 }
 
 printf("Server listening on port %d\n", PORT);
+
+/*while (1) {
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, BUFFER_SIZE);
+    struct sockaddr_in clientaddr;
+    socklen_t clientaddrlen = sizeof(clientaddr);
+    int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&clientaddr, &clientaddrlen);
+    if (n < 0) {
+        perror("recvfrom");
+        break;
+    }
+
+    // create a client_t struct with the client's socket and address
+    client_t client = {sockfd, clientaddr, -1};
+
+    if (strncmp(buffer, "quit", 4) == 0) {
+        printf("Client %s:%d quit\n", inet_ntoa(client.addr.sin_addr), ntohs(client.addr.sin_port));
+    } else {
+        // create a new thread to handle the client's request
+        pthread_t tid;
+        pthread_create(&tid, NULL, handle_client, &client);
+    }
+}*/
+
 
 while (1) {
     // accept a new client
