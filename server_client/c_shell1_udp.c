@@ -10,39 +10,55 @@
 #define SERVER_PORT 8888
 #define BUFFER_SIZE 1024
 
-// void handle_help() {
+
+// void handle_help(int sockfd) {
+//     // send the help command to the server
+//     if (send(sockfd, "help\n", strlen("help\n"), 0) < 0) {
+//         perror("send");
+//         return;
+//     }
+
+//     // receive the server's response
+//     char buffer[BUFFER_SIZE];
+//     memset(buffer, 0, BUFFER_SIZE);
+//     int n = recv(sockfd, buffer, BUFFER_SIZE, 0);
+//     if (n < 0) {
+//         perror("recv");
+//         return;
+//     } else if (n == 0) {
+//         printf("Server disconnected\n");
+//         return;
+//     }
+
+//     // display the server's response in a user-friendly manner
 //     printf("Commands:\n");
-//     printf("help: show the commands supported in the client shell.\n");
-//     printf("connect [hostname]: connect to the remote server. For example: connect spirit.eecs.csuohio.edu\n");
-//     printf("disconnect: disconnect from the remote server.\n");
-//     printf("[normal Linux shell command]: any Linux shell command supported by the standard Linux.\n");
-//     printf("quit: quit the client shell.\n");
+//     printf("%s", buffer);
+//     fflush(stdout); // flush stdout to ensure output is displayed immediately
 // }
 
 void handle_help(int sockfd) {
     // send the help command to the server
-        if (send(sockfd, "help\n", strlen("help\n"), 0) < 0) {
+    if (send(sockfd, "help\n", strlen("help\n"), 0) < 0) {
         perror("send");
         return;
-        }
+    }
 
     // receive the server's response
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, BUFFER_SIZE);
     int n = recv(sockfd, buffer, BUFFER_SIZE, 0);
-        if (n < 0) {
+    if (n < 0) {
         perror("recv");
         return;
-        } else if (n == 0) {
+    } else if (n == 0) {
         printf("Server disconnected\n");
         return;
-        }
+    }
 
-    // display the server's response in a user-friendly manner
-        printf("Commands:\n");
-        printf("%s", buffer);
+    // print the server's response directly to the console
+    write(STDOUT_FILENO, buffer, n);
+    fflush(stdout); // flush stdout to ensure output is displayed immediately
 }
-
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -86,16 +102,15 @@ int main(int argc, char *argv[]) {
         fflush(stdout);
 
         // read a line from stdin
-        memset(buffer, 0, BUFFER_SIZE);
-        if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) {
-            break;
-        }
+    memset(buffer, 0, BUFFER_SIZE);
+    if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) {
+    break;
+    }
 
-        
-        if (strncmp(buffer, "help", 4) == 0) {
-            handle_help();
-        } else if (strncmp(buffer, "connect ", 8) == 0) {
-            char *hostname = strtok(buffer + 8, " \n");
+    if (strncmp(buffer, "help", 4) == 0) {
+    handle_help(sockfd);
+    } else if (strncmp(buffer, "connect ", 8) == 0) {
+    char *hostname = strtok(buffer + 8, " \n");
             printf("connecting to %s... ", hostname);
             fflush(stdout);
             if (inet_pton(AF_INET, hostname, &servaddr.sin_addr) <= 0) {
@@ -107,17 +122,8 @@ int main(int argc, char *argv[]) {
                 continue;
             }
             printf("successful\n");
-        // } else if (strncmp(buffer, "disconnect", 10) == 0) {
-        //     printf("disconnecting... ");
-        //     fflush(stdout);
-        //     if (shutdown(sockfd, SHUT_RDWR) < 0) {
-        //         perror("shutdown");
-        //         continue;
-        //     }
-        //     printf("successful\n");
-
-        } else if (strncmp(buffer, "disconnect", 10) == 0) {
-                printf("disconnecting... ");
+    } else if (strncmp(buffer, "disconnect", 10) == 0) {
+            printf("disconnecting... ");
                 fflush(stdout);
             if (shutdown(sockfd, SHUT_RDWR) < 0) {
                 perror("shutdown");
@@ -126,27 +132,32 @@ int main(int argc, char *argv[]) {
                 printf("successful\n");
                 close(sockfd);
                 sockfd = -1;
-        } else if (strncmp(buffer, "quit", 4) == 0) {
+    } else if (strncmp(buffer, "quit", 4) == 0) {
+    break;
+    } else {
+    if (sockfd == -1) {
+        printf("Error: not connected to a server.\n");
+        continue;
+    }
+    if (send(sockfd, buffer, strlen(buffer), 0) < 0) {
+        perror("send");
+        continue;
+    }
+    memset(buffer, 0, BUFFER_SIZE);
+    int bytes_received = 0;
+    int expected_bytes = strlen(buffer);
+    while (bytes_received < expected_bytes) {
+        int n = recv(sockfd, buffer + bytes_received, expected_bytes - bytes_received, MSG_WAITALL);
+        if (n < 0) {
+            perror("recv");
             break;
-        } else {
-            if (sockfd == -1) {
-                printf("Error: not connected to a server.\n");
-                continue;
-                }
-            if (send(sockfd, buffer, strlen(buffer), 0) < 0) {
-                perror("send");
-                continue;
-                }
-                memset(buffer, 0, BUFFER_SIZE);
-                int n = recv(sockfd, buffer, BUFFER_SIZE, 0);
-            if (n < 0) {
-                perror("recv");
-                continue;
-            } else if (n == 0) {
-                printf("Server disconnected\n");
-                break;
-            } else {
-                printf("%s", buffer);
+        } else if (n == 0) {
+            printf("Server disconnected\n");
+            break;
+        }
+            bytes_received += n;
+        // }
+            printf("%s", buffer);
             }
         }       
     }

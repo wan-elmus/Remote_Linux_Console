@@ -288,49 +288,94 @@ void start_client_thread(int sockfd) {
     }
 }
 
+// int main(int argc, char *argv[]) {
+// srand(time(NULL));
+// int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+// if (sockfd < 0) {
+// perror("socket");
+// exit(EXIT_FAILURE);
+// }
+
+// struct sockaddr_in servaddr, cliaddr;
+// memset(&servaddr, 0, sizeof(servaddr));
+// memset(&cliaddr, 0, sizeof(cliaddr));
+// servaddr.sin_family = AF_INET;
+// servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+// servaddr.sin_port = htons(PORT);
+
+// if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+//     perror("bind");
+//     exit(EXIT_FAILURE);
+// }
+
+// printf("Server listening on port %d\n", PORT);
+
+// while (1) {
+//     // accept a new client
+//     client_t *client = (client_t *)malloc(sizeof(client_t));
+//     memset(client, 0, sizeof(client_t));
+//     client->sockfd = sockfd;
+//     socklen_t clilen = sizeof(cliaddr);
+//     int n = recvfrom(sockfd, NULL, 0, MSG_PEEK, (struct sockaddr *)&cliaddr, &clilen);
+//     if (n < 0) {
+//         perror("recvfrom");
+//         continue;
+//     }
+
+//     // create a new thread to handle the client
+//     client->addr = cliaddr;
+//     pthread_t tid;
+//     if (pthread_create(&tid, NULL, &handle_client, (void *)client) != 0) {
+// {
+//         perror("pthread_create");
+//         free(client);
+//     }
+// }
+//     }
+// return 0;
+// }
+
 int main(int argc, char *argv[]) {
-srand(time(NULL));
-int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-if (sockfd < 0) {
-perror("socket");
-exit(EXIT_FAILURE);
-}
-
-struct sockaddr_in servaddr, cliaddr;
-memset(&servaddr, 0, sizeof(servaddr));
-memset(&cliaddr, 0, sizeof(cliaddr));
-servaddr.sin_family = AF_INET;
-servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-servaddr.sin_port = htons(PORT);
-
-if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-    perror("bind");
-    exit(EXIT_FAILURE);
-}
-
-printf("Server listening on port %d\n", PORT);
-
-while (1) {
-    // accept a new client
-    client_t *client = (client_t *)malloc(sizeof(client_t));
-    memset(client, 0, sizeof(client_t));
-    client->sockfd = sockfd;
-    socklen_t clilen = sizeof(cliaddr);
-    int n = recvfrom(sockfd, NULL, 0, MSG_PEEK, (struct sockaddr *)&cliaddr, &clilen);
-    if (n < 0) {
-        perror("recvfrom");
-        continue;
+    srand(time(NULL));
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
     }
 
-    // create a new thread to handle the client
-    client->addr = cliaddr;
-    pthread_t tid;
-    if (pthread_create(&tid, NULL, &handle_client, (void *)client) != 0) {
-{
-        perror("pthread_create");
-        free(client);
+    struct sockaddr_in servaddr, cliaddr;
+    memset(&servaddr, 0, sizeof(servaddr));
+    memset(&cliaddr, 0, sizeof(cliaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(PORT);
+
+    if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+        perror("bind");
+        exit(EXIT_FAILURE);
     }
-}
+
+    printf("Server listening on port %d\n", PORT);
+
+    while (1) {
+        // accept a new client
+        client_t *client = (client_t *)malloc(sizeof(client_t));
+        memset(client, 0, sizeof(client_t));
+        client->sockfd = sockfd;
+        socklen_t clilen = sizeof(cliaddr);
+        int n = recvfrom(sockfd, NULL, 0, MSG_WAITALL, (struct sockaddr *)&cliaddr, &clilen);
+        if (n < 0) {
+            perror("recvfrom");
+            continue;
+        }
+
+        // create a new thread to handle the client
+        client->addr = cliaddr;
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, &handle_client, (void *)client) != 0) {
+            perror("pthread_create");
+            free(client);
+        }
     }
-return 0;
+    return 0;
 }
