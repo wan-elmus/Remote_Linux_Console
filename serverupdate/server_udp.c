@@ -17,6 +17,7 @@ typedef struct {
     int sockfd;
     struct sockaddr_in addr;
     int handle;
+    char *name;
 } client_t;
 
 void handle_command_execution(client_t *client, char *cmd) {
@@ -112,12 +113,14 @@ void *handle_client(void *arg) {
     socklen_t len = sizeof(cliaddr);
     getpeername(sockfd, (struct sockaddr *)&cliaddr, &len);
     printf("New client connected: %s\n", inet_ntoa(cliaddr.sin_addr));
-    
+
     // initialize the client
     client_t client;
     client.sockfd = sockfd;
     client.addr = cliaddr;
     client.handle = rand() % MAX_CLIENTS;
+    client.name = malloc(sizeof(char) * BUFFER_SIZE);
+    sprintf(client.name, "client_%d", client.handle);
 
     while (1) {
         char buffer[BUFFER_SIZE];
@@ -154,9 +157,13 @@ void *handle_client(void *arg) {
         }
     }
 
+    // close(client.sockfd);
+    // printf("Client disconnected: %s\n", inet_ntoa(cliaddr.sin_addr));
+    // return NULL;
+
     close(client.sockfd);
+    free(client.name);
     printf("Client disconnected: %s\n", inet_ntoa(cliaddr.sin_addr));
-    return NULL;
 }
 
 void start_client_thread(int sockfd) {
