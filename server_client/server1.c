@@ -99,12 +99,10 @@ void handle_command_execution(client_t *client, char *cmd)
         {
             perror("sendto");
         }
-
         // Print the output on the client side
         printf("%s", output);
     }
 }
-
 
 void handle_help(int sockfd, struct sockaddr *addr, socklen_t len)
 {
@@ -125,23 +123,59 @@ void handle_connect(client_t *client, char *hostname)
         fprintf(stderr, "Already connected\n");
         return;
     }
+
     struct hostent *he = gethostbyname(hostname);
     if (he == NULL)
     {
         fprintf(stderr, "Unable to resolve host: %s\n", hostname);
         return;
     }
+
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0)
+    {
+        perror("socket");
+        return;
+    }
+
     memset(&client->addr, 0, sizeof(client->addr));
     client->addr.sin_family = AF_INET;
     client->addr.sin_port = htons(PORT);
     memcpy(&client->addr.sin_addr, he->h_addr_list[0], he->h_length);
+
+    if (connect(sockfd, (struct sockaddr *)&client->addr, sizeof(client->addr)) < 0)
+    {
+        perror("connect");
+        close(sockfd);
+        return;
+    }
+
+    client->sockfd = sockfd;
+    client->handle = rand() % MAX_CLIENTS;
+    client->name = malloc(sizeof(char) * BUFFER_SIZE);
+    sprintf(client->name, "client_%d", client->handle);
+
+    printf("Connected to %s\n", hostname);
 }
+
 void handle_disconnect(client_t *client)
 {
-    // handle the disconnection of a client
-    printf("Client disconnected: %s\n", inet_ntoa(client->addr.sin_addr));
+    if (client->handle == -1)
+    {
+        return;
+    }
+
+    close(client->sockfd);
+    free(client->name);
+    memset(&client->addr, 0, sizeof(client->addr));
+
+
+    printf("Disconnected from %s\n", inet_ntoa(client->addr.sin_addr));
+
+    client->sockfd = -1;
     client->handle = -1;
 }
+
 
 void cleanup_client(client_t *client)
 {
@@ -165,9 +199,10 @@ void *handle_client(void *arg)
     while (1)
     {
         char buffer[BUFFER_SIZE];
+
         // read data from the socket
         int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, NULL, NULL);
-        if (n < 0)
+        if (n == -1)
         {
             perror("recvfrom");
             break;
@@ -260,7 +295,7 @@ int main(int argc, char *argv[])
         client->sockfd = sockfd;
         socklen_t clilen = sizeof(cliaddr);
         int n = recvfrom(sockfd, NULL, 0, MSG_WAITALL, (struct sockaddr *)&cliaddr, &clilen);
-        if (n < 0)
+        if (n == -1)
         {
             perror("recvfrom");
             continue;

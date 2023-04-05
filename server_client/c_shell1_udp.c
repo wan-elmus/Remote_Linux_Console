@@ -11,31 +11,6 @@
 #define BUFFER_SIZE 1024
 
 
-// void handle_help(int sockfd) {
-//     // send the help command to the server
-//     if (send(sockfd, "help\n", strlen("help\n"), 0) < 0) {
-//         perror("send");
-//         return;
-//     }
-
-//     // receive the server's response
-//     char buffer[BUFFER_SIZE];
-//     memset(buffer, 0, BUFFER_SIZE);
-//     int n = recv(sockfd, buffer, BUFFER_SIZE, 0);
-//     if (n < 0) {
-//         perror("recv");
-//         return;
-//     } else if (n == 0) {
-//         printf("Server disconnected\n");
-//         return;
-//     }
-
-//     // display the server's response in a user-friendly manner
-//     printf("Commands:\n");
-//     printf("%s", buffer);
-//     fflush(stdout); // flush stdout to ensure output is displayed immediately
-// }
-
 void handle_help(int sockfd) {
     // send the help command to the server
     if (send(sockfd, "help\n", strlen("help\n"), 0) < 0) {
@@ -46,18 +21,19 @@ void handle_help(int sockfd) {
     // receive the server's response
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, BUFFER_SIZE);
-    int n = recv(sockfd, buffer, BUFFER_SIZE, 0);
+    int n = recv(sockfd, buffer, BUFFER_SIZE - 1, 0); 
     if (n < 0) {
         perror("recv");
         return;
     } else if (n == 0) {
+        // the server has closed the connection
         printf("Server disconnected\n");
         return;
+    } else {
+        buffer[n] = '\0';
+        printf("%s", buffer);
+        fflush(stdout); 
     }
-
-    // print the server's response directly to the console
-    write(STDOUT_FILENO, buffer, n);
-    fflush(stdout); // flush stdout to ensure output is displayed immediately
 }
 
 int main(int argc, char *argv[]) {
